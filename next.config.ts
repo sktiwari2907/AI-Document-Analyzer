@@ -2,13 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  experimental: {
-    turbopack: {
-      resolveAlias: {
-        canvas: './empty-module.js', // Or simply false if supported
-      },
+  turbo: {
+    resolveAlias: {
+      canvas: './empty-module.js',
     },
   },
+
+  // 2. Standard Webpack Alias configuration
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     return config;
