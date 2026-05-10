@@ -25,13 +25,29 @@ type SummaryData = {
 const SummaryUI = ({ data }: { data: SummaryData }) => {
   const router = useRouter();
   
-  const safeData = data || {
-    summary: "No analysis available. Please upload a document to get started.",
-    keyPoints: [],
-    risks: [],
-    importantDates: {},
-    rawTextLength: 0
-  };
+  const safeData = {
+  summary: data?.summary || "",
+
+  keyPoints: Array.isArray(data?.keyPoints)
+    ? data.keyPoints
+    : [],
+
+  risks: Array.isArray(data?.risks)
+    ? data.risks
+    : [],
+
+  importantDates:
+    data?.importantDates &&
+    typeof data.importantDates === "object" &&
+    !Array.isArray(data.importantDates)
+      ? data.importantDates
+      : {},
+
+  rawTextLength:
+    typeof data?.rawTextLength === "number"
+      ? data.rawTextLength
+      : 0,
+};
 
   // Calculate character limit percentage for the visual bar
   const charLimit = 6000;
@@ -129,10 +145,10 @@ const SummaryUI = ({ data }: { data: SummaryData }) => {
                   <FileText className="h-6 w-6 text-emerald-500" />
                   Key Insights
                 </h3>
-                <span className="text-xs font-medium text-slate-400">{safeData.keyPoints.length} total points</span>
+                <span className="text-xs font-medium text-slate-400">{safeData?.keyPoints?.length || 0} total points</span>
               </div>
               <div className="grid gap-4">
-                {safeData.keyPoints.map((point, index) => (
+                {safeData?.keyPoints?.map((point, index) => (
                   <div key={index} className="group flex items-start gap-4 p-5 bg-white rounded-2xl border border-slate-100 hover:border-emerald-200 hover:shadow-md transition-all">
                     <div className="mt-1 flex-shrink-0 h-6 w-6 rounded-lg bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
                       <ChevronRight className="h-4 w-4 text-emerald-600 group-hover:text-white" />
@@ -150,7 +166,7 @@ const SummaryUI = ({ data }: { data: SummaryData }) => {
                 Strategic Timeline
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {Object.entries(safeData.importantDates).map(([key, value]) => (
+                {Object.entries(safeData.importantDates || {}).map(([key, value]) => (
                   <div key={key} className="bg-white p-6 rounded-2xl border border-slate-100 border-l-4 border-l-purple-500 shadow-sm">
                     <span className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{key.replace(/_/g, ' ')}</span>
                     <span className="text-lg font-bold text-slate-900">{value}</span>
