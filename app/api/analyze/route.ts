@@ -16,33 +16,48 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
     let text = "";
 
+    // PDF
     if (file.type === "application/pdf") {
-        const uint8Array = new Uint8Array(await file.arrayBuffer());
+      const uint8Array = new Uint8Array(await file.arrayBuffer());
 
-        const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+      const pdf = await pdfjsLib.getDocument({
+        data: uint8Array,
+      }).promise;
 
-        text = ""; // ✅ FIX
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
 
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
+        const content = await page.getTextContent();
 
-            const strings = content.items.map((item: any) => item.str);
-            text += strings.join(" ") + "\n";
-        }
+        const strings = content.items.map(
+          (item: any) => item.str || ""
+        );
+
+        text += strings.join(" ") + "\n";
+      }
     }
+
+    // TXT
     else if (file.type === "text/plain") {
       text = await file.text();
-    } 
+    }
+
+    // DOCX
     else if (
       file.type ===
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ) {
-      const result = await mammoth.extractRawText({ buffer });
+      const result = await mammoth.extractRawText({
+        buffer,
+      });
+
       text = result.value;
-    } 
+    }
+
+    // Unsupported
     else {
       return NextResponse.json(
         { error: "Unsupported file type" },
@@ -50,6 +65,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Empty text
     if (!text || text.trim().length === 0) {
       return NextResponse.json(
         { error: "Could not extract text from file" },
@@ -59,64 +75,135 @@ export async function POST(req: NextRequest) {
 
     const trimmedText = text.slice(0, 6000);
 
-    console.log("ENV:", process.env.OPENROUTER_API_KEY);
+    console.log(
+      "KEY EXISTS:",
+      !!process.env.OPENROUTER_API_KEY
+    );
 
+    // AI CALL
     const aiResponse = await fetch(
-  "https://openrouter.ai/api/v1/chat/completions",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY?.trim()}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "http://localhost:3000", 
-    },
-    body: JSON.stringify({
-      model: "openrouter/free",
-      messages: [
-  {
-    role: "system",
-    content: `You are a technical analyst. 
-    Output your analysis in STRICT JSON format. 
-    Required keys: "summary", "keyPoints", "risks", "importantDates". 
-    Do not include any markdown formatting like \`\`\`json or extra text.`
-  },
-  {
-    role: "user",
-    content: trimmedText
-  }
-],
-      response_format: { type: "json_object" } 
-    }),
-  }
-);
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
 
-    const data = await aiResponse.json();
-    console.log("FULL AI RESPONSE:", JSON.stringify(data, null, 2));
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY?.trim()}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://ai-document-analyzer-7cnk.vercel.app",
+          "X-Title": "AI File Analyzer",
+        },
 
-    const content = data?.choices?.[0]?.message?.content;
+        body: JSON.stringify({
+          model: "openrouter/free",
 
-    let parsed;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      parsed = {
-        summary: content,
-        keyPoints: [],
-        risks: [],
-        importantDates: [],
-      };
+          messages: [
+            {
+              role: "system",
+
+              content: `
+You are a technical analyst.
+
+Return ONLY valid JSON.
+
+Required keys:
+- summary
+- keyPoints
+- risks
+- importantDates
+
+Rules:
+- keyPoints must be array
+- risks must be array
+- importantDates must be object
+- no markdown
+- no extra text
+`,
+            },
+
+            {
+              role: "user",
+              content: trimmedText,
+            },
+          ],
+
+          response_format: {
+            type: "json_object",
+          },
+        }),
+      }
+    );
+
+    // HANDLE API ERRORS
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text();
+
+      console.error("OPENROUTER ERROR:", errText);
+
+      return NextResponse.json(
+        {
+          error: "AI request failed",
+          details: errText,
+        },
+        { status: 500 }
+      );
     }
 
+    const data = await aiResponse.json();
+
+    console.log(
+      "FULL AI RESPONSE:",
+      JSON.stringify(data, null, 2)
+    );
+
+    const content =
+      data?.choices?.[0]?.message?.content;
+
+    // SAFE PARSE
+    let parsed: any = {};
+
+    try {
+      parsed = JSON.parse(content || "{}");
+    } catch (err) {
+      console.error("JSON PARSE ERROR:", err);
+
+      parsed = {};
+    }
+
+    // SAFE RESPONSE
+    const safeResponse = {
+      summary:
+        typeof parsed.summary === "string"
+          ? parsed.summary
+          : "No summary available.",
+
+      keyPoints: Array.isArray(parsed.keyPoints)
+        ? parsed.keyPoints
+        : [],
+
+      risks: Array.isArray(parsed.risks)
+        ? parsed.risks
+        : [],
+
+      importantDates:
+        parsed.importantDates &&
+        typeof parsed.importantDates === "object" &&
+        !Array.isArray(parsed.importantDates)
+          ? parsed.importantDates
+          : {},
+    };
+
     return NextResponse.json({
-      ...parsed,
+      ...safeResponse,
       rawTextLength: text.length,
     });
-
   } catch (error) {
-    console.error(error);
+    console.error("SERVER ERROR:", error);
+
     return NextResponse.json(
-      { error: "Something went wrong" },
+      {
+        error: "Something went wrong",
+      },
       { status: 500 }
     );
   }
-};
+}
