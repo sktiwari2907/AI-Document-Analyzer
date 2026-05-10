@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY?.trim()}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL,
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://ai-document-analyzer-jkjn.vercel.app",
           "X-Title": "AI File Analyzer",
         },
 
