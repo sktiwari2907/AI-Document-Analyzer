@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title:"Next Js",
-  description: "Next Js",
+  title:"AI Document Analyzer",
+  description: "Upload your documents and let our AI analyze them for you. Get concise summaries, key insights, risk assessments, and important dates at a glance. Perfect for busy professionals who need to quickly understand complex information.",
 };
 
 export default function RootLayout({
