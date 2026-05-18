@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     // PDF
     if (file.type === "application/pdf") {
       const pdfParse = require("pdf-parse-fork");
+      
       const data = await pdfParse(buffer);
       text = data.text;
     }
