@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 // @ts-ignore
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
+import pdfParse from "pdf-parse";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,23 +21,9 @@ export async function POST(req: NextRequest) {
 
     // PDF
     if (file.type === "application/pdf") {
-      const uint8Array = new Uint8Array(await file.arrayBuffer());
+      const data = await pdfParse(buffer);
 
-      const pdf = await pdfjsLib.getDocument({
-        data: uint8Array,
-      }).promise;
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-
-        const content = await page.getTextContent();
-
-        const strings = content.items.map(
-          (item: any) => item.str || ""
-        );
-
-        text += strings.join(" ") + "\n";
-      }
+      text = data.text;
     }
 
     // TXT
