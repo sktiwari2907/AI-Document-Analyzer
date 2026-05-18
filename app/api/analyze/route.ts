@@ -20,16 +20,8 @@ export async function POST(req: NextRequest) {
 
     // PDF
     if (file.type === "application/pdf") {
-      const pdfParse = require("pdf-parse"); 
-      const options = {
-        pagerender: function(pageData: any) {
-          return pageData.getTextContent().then(function(textContent: any) {
-            return textContent.items.map((item: any) => item.str).join(' ');
-          });
-        }
-      };
-    
-      const data = await pdfParse(buffer, options);
+      const pdfParse = require("pdf-parse-fork");
+      const data = await pdfParse(buffer);
       text = data.text;
     }
 
