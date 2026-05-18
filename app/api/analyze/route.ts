@@ -3,8 +3,6 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 
-const pdfParse = require("pdf-parse");
-
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -18,13 +16,12 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-
     let text = "";
 
     // PDF
     if (file.type === "application/pdf") {
+      const pdfParse = require("pdf-parse"); 
       const data = await pdfParse(buffer);
-
       text = data.text;
     }
 
@@ -41,7 +38,6 @@ export async function POST(req: NextRequest) {
       const result = await mammoth.extractRawText({
         buffer,
       });
-
       text = result.value;
     }
 
@@ -73,32 +69,25 @@ export async function POST(req: NextRequest) {
       "https://openrouter.ai/api/v1/chat/completions",
       {
         method: "POST",
-
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY?.trim()}`,
           "Content-Type": "application/json",
           "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://ai-document-analyzer-jkjn.vercel.app",
           "X-Title": "AI File Analyzer",
         },
-
         body: JSON.stringify({
           model: "openrouter/free",
-
           messages: [
             {
               role: "system",
-
               content: `
 You are a technical analyst.
-
 Return ONLY valid JSON.
-
 Required keys:
 - summary
 - keyPoints
 - risks
 - importantDates
-
 Rules:
 - keyPoints must be array
 - risks must be array
@@ -107,13 +96,11 @@ Rules:
 - no extra text
 `,
             },
-
             {
               role: "user",
               content: trimmedText,
             },
           ],
-
           response_format: {
             type: "json_object",
           },
@@ -124,9 +111,7 @@ Rules:
     // HANDLE API ERRORS
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-
       console.error("OPENROUTER ERROR:", errText);
-
       return NextResponse.json(
         {
           error: "AI request failed",
@@ -143,17 +128,14 @@ Rules:
       JSON.stringify(data, null, 2)
     );
 
-    const content =
-      data?.choices?.[0]?.message?.content;
+    const content = data?.choices?.[0]?.message?.content;
 
     // SAFE PARSE
     let parsed: any = {};
-
     try {
       parsed = JSON.parse(content || "{}");
     } catch (err) {
       console.error("JSON PARSE ERROR:", err);
-
       parsed = {};
     }
 
@@ -163,15 +145,12 @@ Rules:
         typeof parsed.summary === "string"
           ? parsed.summary
           : "No summary available.",
-
       keyPoints: Array.isArray(parsed.keyPoints)
         ? parsed.keyPoints
         : [],
-
       risks: Array.isArray(parsed.risks)
         ? parsed.risks
         : [],
-
       importantDates:
         parsed.importantDates &&
         typeof parsed.importantDates === "object" &&
@@ -186,7 +165,6 @@ Rules:
     });
   } catch (error) {
     console.error("SERVER ERROR:", error);
-
     return NextResponse.json(
       {
         error: "Something went wrong",
